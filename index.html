@@ -1061,6 +1061,22 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 .observed-date-panel p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.6; }
 .observed-date-panel ul { margin: 0; padding-left: 20px; color: #695a42; font-size: 11px; line-height: 1.7; }
 @media (max-width: 780px) { .hijri-full-calendar { padding: 16px 11px; } .hijri-calendar-toolbar { align-items: flex-start; flex-direction: column; } .hijri-calendar-actions { justify-content: flex-start; } .hijri-calendar-day, .hijri-calendar-blank { min-height: 66px; padding: 6px 4px; } .hijri-calendar-day > strong { font-size: 19px; } .hijri-calendar-day > span { font-size: 8px; } .hijri-calendar-day small { display: none; } .hijri-calendar-weekdays span { font-size: 8px; padding: 5px 1px; } .observed-date-panel { grid-template-columns: 1fr; gap: 12px; padding: 18px; } }
+
+/* Secure account form refinements */
+.auth-modal { max-height: min(760px, calc(100dvh - 24px)); }
+.auth-password-wrap { position: relative; display: block; }
+.auth-password-wrap input { width: 100%; padding-right: 58px; }
+.auth-password-toggle { position: absolute; top: 50%; right: 7px; transform: translateY(-50%); border: 0; border-radius: 5px; padding: 5px 7px; color: var(--pine); background: #edf1eb; font-size: 10px; font-weight: 800; cursor: pointer; }
+.auth-password-toggle:hover { background: #dfe9dc; }
+.auth-strength { display: grid; gap: 5px; margin-top: -4px; }
+.auth-strength > div { height: 4px; overflow: hidden; border-radius: 99px; background: #e7e6df; }
+.auth-strength i { display: block; width: 0; height: 100%; border-radius: inherit; background: #b86d51; transition: width .2s ease, background .2s ease; }
+.auth-strength span { color: var(--muted); font-size: 10px; line-height: 1.35; }
+.auth-form label[hidden], .auth-strength[hidden] { display: none !important; }
+
+/* Country type-ahead stays inside the secure sign-up dialog on all browsers */
+.auth-field-note { color: var(--muted); font-size: 9px; font-weight: 500; line-height: 1.35; }
+.auth-form input[list]::-webkit-calendar-picker-indicator { opacity: .65; cursor: pointer; }
 </style>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
@@ -1327,6 +1343,8 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
             <div class="profile-page-actions">
               <button type="button" class="primary-button" id="profile-view-login" data-auth-open="login" data-i18n="profileSignIn">Sign in</button>
               <button type="button" class="secondary-button" id="profile-view-register" data-auth-open="register" data-i18n="profileCreate">Create profile</button>
+              <button type="button" class="secondary-button" id="profile-view-resend" data-auth-resend hidden>Resend verification email</button>
+              <button type="button" class="secondary-button" id="profile-view-logout" data-auth-logout hidden>Sign out</button>
             </div>
           </article>
           <article class="profile-page-card">
@@ -1369,15 +1387,17 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
         <button type="button" class="active" data-auth-tab="login" role="tab" aria-selected="true">Sign in</button>
         <button type="button" data-auth-tab="register" role="tab" aria-selected="false">Create account</button>
       </div>
-      <form class="auth-form" id="auth-form" autocomplete="on" novalidate>
+      <form class="auth-form" id="auth-form" autocomplete="on">
         <label id="auth-name-field" hidden>Your name
           <input type="text" id="auth-name" name="name" placeholder="e.g. Yusuf" maxlength="40" autocomplete="name" />
         </label>
         <label>Email address
           <input type="email" id="auth-email" name="email" placeholder="you@example.com" required maxlength="80" autocomplete="email" inputmode="email" />
         </label>
-        <label id="auth-country-field">Country
-          <select id="auth-country" name="country">
+        <label id="auth-country-field">Country / region
+          <input id="auth-country" name="country" type="text" list="auth-country-options" placeholder="Start typing, e.g. Sri Lanka" maxlength="56" autocomplete="country-name" />
+          <small class="auth-field-note">Choose from the suggestions or type your country.</small>
+          <datalist id="auth-country-options">
             <option value="">Select your country</option>
             <option value="Afghanistan">Afghanistan</option>
             <option value="Algeria">Algeria</option>
@@ -1413,12 +1433,17 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
             <option value="United States">United States</option>
             <option value="Yemen">Yemen</option>
             <option value="Other">Other</option>
-          </select>
+          </datalist>
         </label>
         <label id="auth-password-field">Password <span id="auth-password-hint" style="font-weight:500;color:var(--muted)">(at least 8 characters)</span>
-          <input type="password" id="auth-password" name="password" placeholder="Enter your password" minlength="8" maxlength="128" required autocomplete="current-password" />
+          <span class="auth-password-wrap"><input type="password" id="auth-password" name="password" placeholder="Enter your password" minlength="8" maxlength="128" required autocomplete="current-password" /><button type="button" class="auth-password-toggle" data-auth-toggle-password="auth-password" aria-label="Show password" aria-pressed="false">Show</button></span>
+        </label>
+        <div class="auth-strength" id="auth-strength" hidden aria-live="polite"><div><i id="auth-strength-meter"></i></div><span id="auth-strength-text">Use 8 or more characters.</span></div>
+        <label id="auth-confirm-field" hidden>Confirm password
+          <span class="auth-password-wrap"><input type="password" id="auth-confirm-password" name="confirmPassword" placeholder="Enter the same password again" minlength="8" maxlength="128" autocomplete="new-password" /><button type="button" class="auth-password-toggle" data-auth-toggle-password="auth-confirm-password" aria-label="Show confirmation password" aria-pressed="false">Show</button></span>
         </label>
         <button type="button" class="auth-link" id="auth-reset-password" hidden>Forgot your password?</button>
+        <button type="button" class="auth-link" id="auth-resend-verification" hidden>Resend verification email</button>
         <p class="auth-error" id="auth-error" role="alert" aria-live="polite"></p>
         <button type="submit" class="auth-submit" id="auth-submit">Sign in</button>
       </form>
@@ -6284,8 +6309,10 @@ function firebaseUserToProfile(user) {
     emailVerified: Boolean(user.emailVerified)
   };
 }
+const AUTH_EMAIL_CONTINUE_URL = 'https://dhirkcompass.netlify.app/';
 function accountReturnUrl() {
-  return `${window.location.origin}${window.location.pathname}`;
+  // Firebase email-action links need an authorised HTTPS web domain. This also works when the app is later bundled with Capacitor.
+  return AUTH_EMAIL_CONTINUE_URL;
 }
 function firebaseErrorMessage(error) {
   const code = error?.code || '';
@@ -6368,6 +6395,8 @@ function renderProfileUI() {
   const profileViewStatus = $('#profile-view-status');
   const profileViewLogin = $('#profile-view-login');
   const profileViewRegister = $('#profile-view-register');
+  const profileViewResend = $('#profile-view-resend');
+  const profileViewLogout = $('#profile-view-logout');
   if (user) {
     const verification = user.emailVerified ? 'verified account' : 'email verification pending';
     if (avatar) avatar.textContent = initialsFrom(user.name);
@@ -6382,6 +6411,8 @@ function renderProfileUI() {
     if (profileViewStatus) profileViewStatus.textContent = user.emailVerified ? `${user.email} · verified secure account` : `${user.email} · check your inbox to verify this account`;
     if (profileViewLogin) profileViewLogin.hidden = true;
     if (profileViewRegister) profileViewRegister.hidden = true;
+    if (profileViewResend) profileViewResend.hidden = user.emailVerified;
+    if (profileViewLogout) profileViewLogout.hidden = false;
   } else {
     if (avatar) avatar.textContent = '?';
     if (nameEl) nameEl.textContent = 'Guest';
@@ -6395,8 +6426,38 @@ function renderProfileUI() {
     if (profileViewStatus) profileViewStatus.textContent = state.authSetupError || 'Create a secure account or sign in to continue.';
     if (profileViewLogin) profileViewLogin.hidden = false;
     if (profileViewRegister) profileViewRegister.hidden = false;
+    if (profileViewResend) profileViewResend.hidden = true;
+    if (profileViewLogout) profileViewLogout.hidden = true;
   }
   if (typeof formatDate === 'function') formatDate();
+}
+function authPasswordStrength(password) {
+  const value = String(password || '');
+  let score = 0;
+  if (value.length >= 8) score += 1;
+  if (value.length >= 12) score += 1;
+  if (/[a-z]/.test(value) && /[A-Z]/.test(value)) score += 1;
+  if (/\d/.test(value)) score += 1;
+  if (/[^A-Za-z0-9]/.test(value)) score += 1;
+  const labels = ['Use 8 or more characters.', 'Weak password — add more characters.', 'Fair password — add upper/lowercase and a number.', 'Good password.', 'Strong password.', 'Strong password.'];
+  const colors = ['#b86d51', '#b86d51', '#c99c55', '#759a69', '#3f7856', '#3f7856'];
+  return { score, label: labels[score], color: colors[score] };
+}
+function updatePasswordStrength() {
+  const strength = authPasswordStrength($('#auth-password')?.value || '');
+  const meter = $('#auth-strength-meter');
+  const text = $('#auth-strength-text');
+  if (meter) { meter.style.width = `${Math.max(0, strength.score) * 20}%`; meter.style.background = strength.color; }
+  if (text) text.textContent = strength.label;
+}
+function resetPasswordVisibility() {
+  $$('[data-auth-toggle-password]').forEach(button => {
+    const input = $(`#${button.dataset.authTogglePassword}`);
+    if (input) input.type = 'password';
+    button.textContent = 'Show';
+    button.setAttribute('aria-pressed', 'false');
+    button.setAttribute('aria-label', input?.id === 'auth-confirm-password' ? 'Show confirmation password' : 'Show password');
+  });
 }
 function setAuthTab(tab) {
   const isLogin = tab === 'login';
@@ -6411,22 +6472,28 @@ function setAuthTab(tab) {
     : 'Create an account with your email and a strong password. We will send an email to verify it.';
   $('#auth-name-field').hidden = isLogin;
   $('#auth-country-field').hidden = isLogin;
+  $('#auth-confirm-field').hidden = isLogin;
+  $('#auth-strength').hidden = isLogin;
   $('#auth-name').required = !isLogin;
   $('#auth-country').required = !isLogin;
+  $('#auth-confirm-password').required = !isLogin;
   $('#auth-password').required = true;
   $('#auth-password').minLength = 8;
   $('#auth-password').placeholder = isLogin ? 'Enter your password' : 'At least 8 characters';
   $('#auth-password').autocomplete = isLogin ? 'current-password' : 'new-password';
   $('#auth-password-hint').textContent = isLogin ? '(your account password)' : '(at least 8 characters)';
   $('#auth-reset-password').hidden = !isLogin;
+  $('#auth-resend-verification').hidden = true;
   $('#auth-submit').textContent = isLogin ? 'Sign in securely' : 'Create secure account';
   $('#auth-error').textContent = '';
   $('#auth-form').dataset.mode = tab;
+  updatePasswordStrength();
   if (state.authSetupError) setAuthServiceStatus(state.authSetupError, true);
 }
 function openAuthModal(tab = 'login') {
-  setAuthTab(tab);
   $('#auth-form').reset();
+  resetPasswordVisibility();
+  setAuthTab(tab);
   $('#auth-form').dataset.mode = tab;
   $('#auth-error').textContent = '';
   $('#profile-menu')?.classList.remove('open');
@@ -6436,17 +6503,17 @@ function openAuthModal(tab = 'login') {
 }
 function closeAuthModal() { $('#auth-modal').close(); }
 function setAuthBusy(busy) {
-  $('#auth-submit').disabled = busy;
-  $('#auth-reset-password').disabled = busy;
+  $$('#auth-form input, #auth-form select, #auth-form button, #auth-modal [data-auth-tab]').forEach(control => { control.disabled = busy; });
   $('#auth-submit').textContent = busy ? 'Please wait…' : (($('#auth-form').dataset.mode || 'login') === 'login' ? 'Sign in securely' : 'Create secure account');
 }
-async function registerUser({ name, email, country, password }) {
+async function registerUser({ name, email, country, password, confirmPassword }) {
   const cleanName = String(name || '').trim();
   const cleanEmail = String(email || '').trim().toLowerCase();
   if (!cleanName) throw new Error('Please enter your name.');
   if (!cleanEmail) throw new Error('Please enter your email address.');
   if (!country) throw new Error('Please select your country.');
   if (String(password || '').length < 8) throw new Error('Choose a password with at least 8 characters.');
+  if (password !== confirmPassword) throw new Error('The password confirmation does not match.');
   const auth = await requireFirebaseAuth();
   const credential = await firebaseAuthSdk.createUserWithEmailAndPassword(auth, cleanEmail, password);
   await firebaseAuthSdk.updateProfile(credential.user, { displayName: cleanName.slice(0, 40) });
@@ -6482,6 +6549,17 @@ async function resetFirebasePassword() {
     $('#auth-error').style.color = '';
     $('#auth-error').textContent = firebaseErrorMessage(error);
   } finally { setAuthBusy(false); }
+}
+async function resendFirebaseVerification() {
+  try {
+    const auth = await requireFirebaseAuth();
+    const user = auth.currentUser;
+    if (!user) { openAuthModal('login'); return; }
+    await user.reload();
+    if (user.emailVerified) { state.authUser = firebaseUserToProfile(user); renderProfileUI(); showToast('This email address is already verified.'); return; }
+    await firebaseAuthSdk.sendEmailVerification(user, { url: accountReturnUrl(), handleCodeInApp: false });
+    showToast('A new verification email has been sent. Check your inbox and spam folder.');
+  } catch (error) { showToast(firebaseErrorMessage(error)); }
 }
 async function logoutUser() {
   try {
@@ -6524,33 +6602,44 @@ function bindAuthEvents() {
       if (mode === 'profile') showProfileSummary(); else openAuthModal(mode === 'register' ? 'register' : 'login');
     }
     if (event.target.closest('[data-auth-logout]')) logoutUser();
+    if (event.target.closest('[data-auth-resend]')) resendFirebaseVerification();
     const tabButton = event.target.closest('[data-auth-tab]');
-    if (tabButton) setAuthTab(tabButton.dataset.authTab);
+    if (tabButton) { $('#auth-form').reset(); resetPasswordVisibility(); setAuthTab(tabButton.dataset.authTab); }
   });
+  $$('[data-auth-toggle-password]').forEach(button => button.addEventListener('click', () => {
+    const input = $(`#${button.dataset.authTogglePassword}`);
+    if (!input) return;
+    const shouldShow = input.type === 'password';
+    input.type = shouldShow ? 'text' : 'password';
+    button.textContent = shouldShow ? 'Hide' : 'Show';
+    button.setAttribute('aria-pressed', String(shouldShow));
+    button.setAttribute('aria-label', `${shouldShow ? 'Hide' : 'Show'} ${input.id === 'auth-confirm-password' ? 'confirmation password' : 'password'}`);
+  }));
+  $('#auth-password')?.addEventListener('input', updatePasswordStrength);
   $('#auth-form')?.addEventListener('submit', async event => {
     event.preventDefault();
-    const mode = $('#auth-form').dataset.mode || 'login';
+    const form = $('#auth-form');
+    if (!form.checkValidity()) { form.reportValidity(); return; }
+    const mode = form.dataset.mode || 'login';
     const name = $('#auth-name').value;
     const email = $('#auth-email').value;
     const country = $('#auth-country')?.value || '';
     const password = $('#auth-password').value;
+    const confirmPassword = $('#auth-confirm-password').value;
     $('#auth-error').style.color = '';
     $('#auth-error').textContent = '';
     try {
       setAuthBusy(true);
-      if (mode === 'register') await registerUser({ name, email, country, password });
+      if (mode === 'register') await registerUser({ name, email, country, password, confirmPassword });
       else await loginUser({ email, password });
     } catch (error) {
       $('#auth-error').textContent = firebaseErrorMessage(error);
     } finally { setAuthBusy(false); }
   });
   $('#auth-reset-password')?.addEventListener('click', resetFirebasePassword);
-  $('#auth-modal')?.addEventListener('click', event => {
-    const dialog = $('#auth-modal'); const bounds = dialog.getBoundingClientRect();
-    if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) dialog.close();
-  });
+  $('#auth-resend-verification')?.addEventListener('click', resendFirebaseVerification);
+  // Account dialog intentionally has no click-to-close backdrop handler: country suggestions and mobile pickers must never dismiss a sign-up in progress.
 }
-
 function welcomeOnOpen() {
   const user = currentUser();
   // Text-only welcome: no automatic Assalamu Alaikum speech is played on page open.
@@ -6581,5 +6670,5 @@ init();
 
 </script>
 <audio id="default-adhan-audio" preload="auto" style="display:none"></audio>
-<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a4e8a29f8b9824d1',t:'MTc5MjY3MzUwNQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a4ee68baee45b95e',t:'MTc5MjczNDA0OA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
